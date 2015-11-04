@@ -30,6 +30,9 @@ type ctrlAddOutChan struct {
 func (ctrl *ctrlAddOutChan) exec(h *HandlerManager) {
 	log.Info("ctrlAddOutChan.exec")
 	h.outChans = append(h.outChans, ctrl.outChan)
+	if len(h.outChans) == 1 {
+		h.firstFn()
+	}
 }
 
 // ctrlAddOutChan handlerCtrl message that packages the chan to add
@@ -45,6 +48,9 @@ func (ctrl *ctrlRemoveOutChan) exec(h *HandlerManager) {
 				copy(h.outChans[i:], h.outChans[i+1:])
 			}
 			h.outChans = h.outChans[0 : len(h.outChans)-1]
+			if len(h.outChans) == 0 {
+				h.lastFn()
+			}
 			return
 		}
 	}
@@ -70,6 +76,9 @@ func NewHandlerManager(inChan chan interface{}, fn HandlerManagerFilterFunc, fir
 
 	h.fn = fn
 
+	h.firstFn = firstFn
+	h.lastFn = lastFn
+
 	go h.start()
 	return
 }
@@ -78,7 +87,7 @@ func (h *HandlerManager) Attach(fn HandlerFunc) {
 	c := make(chan interface{}, 10)
 
 	go func() {
-		defer close(c)
+		defer h.RemoveOutChan(c)
 		for m := range c {
 			if fn(m) == false {
 				break
