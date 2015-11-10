@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/HackerLoop/rotonde/shared"
+	"github.com/vitaminwater/handlers.go"
 )
 
 // TODO dry
@@ -19,14 +20,14 @@ type Client struct {
 	jsonOutChan chan interface{}
 	jsonInChan  chan interface{}
 
-	definitionHandler         *HandlerManager
-	namedDefinitionHandlers   map[string]*HandlerManager
-	unDefinitionHandler       *HandlerManager
-	namedUnDefinitionHandlers map[string]*HandlerManager
-	eventHandler              *HandlerManager
-	namedEventHandlers        map[string]*HandlerManager
-	actionHandler             *HandlerManager
-	namedActionHandlers       map[string]*HandlerManager
+	definitionHandler         *handlers.HandlerManager
+	namedDefinitionHandlers   map[string]*handlers.HandlerManager
+	unDefinitionHandler       *handlers.HandlerManager
+	namedUnDefinitionHandlers map[string]*handlers.HandlerManager
+	eventHandler              *handlers.HandlerManager
+	namedEventHandlers        map[string]*handlers.HandlerManager
+	actionHandler             *handlers.HandlerManager
+	namedActionHandlers       map[string]*handlers.HandlerManager
 }
 
 func NewClient(rotondeUrl string) (c *Client) {
@@ -40,11 +41,11 @@ func NewClient(rotondeUrl string) (c *Client) {
 
 	go startConnection(rotondeUrl, c.jsonInChan, c.jsonOutChan)
 
-	mainHandler := NewHandlerManager(c.jsonOutChan, passAll, noop, noop)
+	mainHandler := handlers.NewHandlerManager(c.jsonOutChan, handlers.PassAll, handlers.Noop, handlers.Noop)
 
-	c.definitionHandler = NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (r interface{}, ok bool) { r, ok = m.(rotonde.Definition); return }, noop, noop)
-	mainHandler.AddOutChan(c.definitionHandler.inChan)
-	c.namedDefinitionHandlers = make(map[string]*HandlerManager)
+	c.definitionHandler = handlers.NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (r interface{}, ok bool) { r, ok = m.(rotonde.Definition); return }, handlers.Noop, handlers.Noop)
+	mainHandler.AddOutChan(c.definitionHandler.InChan)
+	c.namedDefinitionHandlers = make(map[string]*handlers.HandlerManager)
 
 	c.definitionHandler.Attach(func(d interface{}) bool {
 		def := d.(rotonde.Definition)
@@ -52,9 +53,9 @@ func NewClient(rotondeUrl string) (c *Client) {
 		return true
 	})
 
-	c.unDefinitionHandler = NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (r interface{}, ok bool) { r, ok = m.(rotonde.UnDefinition); return }, noop, noop)
-	mainHandler.AddOutChan(c.unDefinitionHandler.inChan)
-	c.namedUnDefinitionHandlers = make(map[string]*HandlerManager)
+	c.unDefinitionHandler = handlers.NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (r interface{}, ok bool) { r, ok = m.(rotonde.UnDefinition); return }, handlers.Noop, handlers.Noop)
+	mainHandler.AddOutChan(c.unDefinitionHandler.InChan)
+	c.namedUnDefinitionHandlers = make(map[string]*handlers.HandlerManager)
 
 	c.unDefinitionHandler.Attach(func(d interface{}) bool {
 		def := d.(rotonde.Definition)
@@ -62,13 +63,13 @@ func NewClient(rotondeUrl string) (c *Client) {
 		return true
 	})
 
-	c.eventHandler = NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (r interface{}, ok bool) { r, ok = m.(rotonde.Event); return }, noop, noop)
-	mainHandler.AddOutChan(c.eventHandler.inChan)
-	c.namedEventHandlers = make(map[string]*HandlerManager)
+	c.eventHandler = handlers.NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (r interface{}, ok bool) { r, ok = m.(rotonde.Event); return }, handlers.Noop, handlers.Noop)
+	mainHandler.AddOutChan(c.eventHandler.InChan)
+	c.namedEventHandlers = make(map[string]*handlers.HandlerManager)
 
-	c.actionHandler = NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (r interface{}, ok bool) { r, ok = m.(rotonde.Action); return }, noop, noop)
-	mainHandler.AddOutChan(c.actionHandler.inChan)
-	c.namedActionHandlers = make(map[string]*HandlerManager)
+	c.actionHandler = handlers.NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (r interface{}, ok bool) { r, ok = m.(rotonde.Action); return }, handlers.Noop, handlers.Noop)
+	mainHandler.AddOutChan(c.actionHandler.InChan)
+	c.namedActionHandlers = make(map[string]*handlers.HandlerManager)
 	return
 }
 
@@ -160,69 +161,69 @@ func (c *Client) SendAction(identifier string, data rotonde.Object) {
 	}
 }
 
-func (c *Client) OnDefinition(fn HandlerFunc) {
+func (c *Client) OnDefinition(fn handlers.HandlerFunc) {
 	c.definitionHandler.Attach(fn)
 }
 
-func (c *Client) OnNamedDefinition(identifier string, fn HandlerFunc) {
+func (c *Client) OnNamedDefinition(identifier string, fn handlers.HandlerFunc) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	handler, ok := c.namedDefinitionHandlers[identifier]
 	if ok == false {
-		handler = NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (interface{}, bool) { return m, m.(rotonde.Definition).Identifier == identifier }, noop, noop)
-		c.definitionHandler.AddOutChan(handler.inChan)
+		handler = handlers.NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (interface{}, bool) { return m, m.(rotonde.Definition).Identifier == identifier }, handlers.Noop, handlers.Noop)
+		c.definitionHandler.AddOutChan(handler.InChan)
 		c.namedDefinitionHandlers[identifier] = handler
 	}
 	handler.Attach(fn)
 }
 
-func (c *Client) OnUnDefinition(fn HandlerFunc) {
+func (c *Client) OnUnDefinition(fn handlers.HandlerFunc) {
 	c.unDefinitionHandler.Attach(fn)
 }
 
-func (c *Client) OnNamedUnDefinition(identifier string, fn HandlerFunc) {
+func (c *Client) OnNamedUnDefinition(identifier string, fn handlers.HandlerFunc) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	handler, ok := c.namedUnDefinitionHandlers[identifier]
 	if ok == false {
-		handler = NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (interface{}, bool) { return m, m.(rotonde.UnDefinition).Identifier == identifier }, noop, noop)
-		c.unDefinitionHandler.AddOutChan(handler.inChan)
+		handler = handlers.NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (interface{}, bool) { return m, m.(rotonde.UnDefinition).Identifier == identifier }, handlers.Noop, handlers.Noop)
+		c.unDefinitionHandler.AddOutChan(handler.InChan)
 		c.namedUnDefinitionHandlers[identifier] = handler
 	}
 	handler.Attach(fn)
 }
 
-func (c *Client) OnEvent(fn HandlerFunc) {
+func (c *Client) OnEvent(fn handlers.HandlerFunc) {
 	c.eventHandler.Attach(fn)
 }
 
-func (c *Client) OnNamedEvent(identifier string, fn HandlerFunc) {
+func (c *Client) OnNamedEvent(identifier string, fn handlers.HandlerFunc) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	handler, ok := c.namedEventHandlers[identifier]
 	if ok == false {
-		handler = NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (interface{}, bool) { return m, m.(rotonde.Event).Identifier == identifier }, func() {
+		handler = handlers.NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (interface{}, bool) { return m, m.(rotonde.Event).Identifier == identifier }, func() {
 			c.SendMessage(rotonde.Subscription{identifier})
 		}, func() {
 			c.SendMessage(rotonde.Unsubscription{identifier})
 		})
-		c.eventHandler.AddOutChan(handler.inChan)
+		c.eventHandler.AddOutChan(handler.InChan)
 		c.namedEventHandlers[identifier] = handler
 	}
 	handler.Attach(fn)
 }
 
-func (c *Client) OnAction(fn HandlerFunc) {
+func (c *Client) OnAction(fn handlers.HandlerFunc) {
 	c.actionHandler.Attach(fn)
 }
 
-func (c *Client) OnNamedAction(identifier string, fn HandlerFunc) {
+func (c *Client) OnNamedAction(identifier string, fn handlers.HandlerFunc) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	handler, ok := c.namedActionHandlers[identifier]
 	if ok == false {
-		handler = NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (interface{}, bool) { return m, m.(rotonde.Action).Identifier == identifier }, noop, noop)
-		c.actionHandler.AddOutChan(handler.inChan)
+		handler = handlers.NewHandlerManager(make(chan interface{}, 10), func(m interface{}) (interface{}, bool) { return m, m.(rotonde.Action).Identifier == identifier }, handlers.Noop, handlers.Noop)
+		c.actionHandler.AddOutChan(handler.InChan)
 		c.namedActionHandlers[identifier] = handler
 	}
 	handler.Attach(fn)
