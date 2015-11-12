@@ -58,7 +58,7 @@ func NewClient(rotondeUrl string) (c *Client) {
 	c.namedUnDefinitionHandlers = make(map[string]*handlers.HandlerManager)
 
 	c.unDefinitionHandler.Attach(func(d interface{}) bool {
-		def := d.(rotonde.Definition)
+		def := d.(rotonde.UnDefinition)
 		c.removeRemoteDefinition(def.Type, def.Identifier)
 		return true
 	})
