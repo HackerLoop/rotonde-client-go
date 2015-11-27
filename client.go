@@ -140,7 +140,7 @@ func (c *Client) RemoveLocalDefinition(typ string, identifier string) {
 	}
 	definitions = rotonde.RemoveDefinition(definitions, identifier)
 	c.localDefinitions[typ] = definitions
-	c.jsonInChan <- rotonde.UnDefinition{definition.Identifier, definition.Type, definition.Fields}
+	c.jsonInChan <- rotonde.UnDefinition{definition.Identifier, definition.Type, definition.IsArray, definition.Fields}
 }
 
 func (c *Client) SendMessage(message interface{}) {
