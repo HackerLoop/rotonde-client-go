@@ -1,7 +1,6 @@
 package client
 
 import (
-	"encoding/json"
 	"net"
 	"net/http"
 	"net/url"
@@ -11,7 +10,6 @@ import (
 	"github.com/HackerLoop/rotonde/shared"
 	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/websocket"
-	"github.com/mitchellh/mapstructure"
 )
 
 func startConnection(rotondeUrl string, inChan, outChan chan interface{}) {
@@ -46,35 +44,13 @@ func processRotondePackets(conn *websocket.Conn, inChan, outChan chan interface{
 	go func() {
 		defer wg.Done()
 
-		var jsonPacket []byte
-		var err error
-		var packet rotonde.Packet
-
 		for {
 			select {
 			case dispatcherPacket := <-inChan:
-				switch data := dispatcherPacket.(type) {
-				case rotonde.Event:
-					packet = rotonde.Packet{Type: "event", Payload: data}
-				case rotonde.Action:
-					packet = rotonde.Packet{Type: "action", Payload: data}
-				case rotonde.Subscription:
-					packet = rotonde.Packet{Type: "sub", Payload: data}
-				case rotonde.Unsubscription:
-					packet = rotonde.Packet{Type: "unsub", Payload: data}
-				case rotonde.Definition:
-					packet = rotonde.Packet{Type: "def", Payload: data}
-				case rotonde.UnDefinition:
-					packet = rotonde.Packet{Type: "undef", Payload: data}
-				default:
-					log.Info("Oops unknown packet: ", dispatcherPacket)
-				}
-
-				jsonPacket, err = json.Marshal(packet)
+				jsonPacket, err := rotonde.ToJSON(dispatcherPacket)
 				if err != nil {
 					log.Warning(err)
 				}
-
 				if err := conn.WriteMessage(websocket.TextMessage, jsonPacket); err != nil {
 					log.Warning(err)
 					return
@@ -90,8 +66,6 @@ func processRotondePackets(conn *websocket.Conn, inChan, outChan chan interface{
 	go func() {
 		defer wg.Done()
 
-		var dispatcherPacket interface{}
-
 		for {
 			messageType, reader, err := conn.NextReader()
 			if err != nil {
@@ -100,32 +74,10 @@ func processRotondePackets(conn *websocket.Conn, inChan, outChan chan interface{
 				return
 			}
 			if messageType == websocket.TextMessage {
-				packet := rotonde.Packet{}
-				decoder := json.NewDecoder(reader)
-				if err := decoder.Decode(&packet); err != nil {
+				dispatcherPacket, err := rotonde.FromJSON(reader)
+				if err != nil {
 					log.Warning(err)
-					continue
 				}
-
-				switch packet.Type {
-				case "event":
-					event := rotonde.Event{}
-					mapstructure.Decode(packet.Payload, &event)
-					dispatcherPacket = event
-				case "action":
-					action := rotonde.Action{}
-					mapstructure.Decode(packet.Payload, &action)
-					dispatcherPacket = action
-				case "def":
-					definition := rotonde.Definition{}
-					mapstructure.Decode(packet.Payload, &definition)
-					dispatcherPacket = definition
-				case "undef":
-					unDefinition := rotonde.UnDefinition{}
-					mapstructure.Decode(packet.Payload, &unDefinition)
-					dispatcherPacket = unDefinition
-				}
-
 				outChan <- dispatcherPacket
 			}
 		}
