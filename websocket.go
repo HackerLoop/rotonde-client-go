@@ -13,7 +13,7 @@ import (
 )
 
 func startConnection(rotondeUrl string, inChan, outChan chan interface{}) {
-	log.Println("startRotondeClient")
+	log.Info("startRotondeClient")
 	u, err := url.Parse(rotondeUrl)
 	if err != nil {
 		panic(err)
@@ -22,14 +22,14 @@ func startConnection(rotondeUrl string, inChan, outChan chan interface{}) {
 	for {
 		conn, err := net.Dial("tcp", u.Host)
 		if err != nil {
-			log.Println(err)
+			log.Warning(err)
 			time.Sleep(2 * time.Second)
 			continue
 		}
 		ws, response, err := websocket.NewClient(conn, u, http.Header{}, 10000, 10000)
 		if err != nil {
-			log.Println(err)
-			log.Println(response)
+			log.Warning(err)
+			log.Warning(response)
 			time.Sleep(2 * time.Second)
 			continue
 		}
@@ -38,7 +38,6 @@ func startConnection(rotondeUrl string, inChan, outChan chan interface{}) {
 }
 
 func processRotondePackets(conn *websocket.Conn, inChan, outChan chan interface{}) {
-	errChan := make(chan error)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -52,12 +51,9 @@ func processRotondePackets(conn *websocket.Conn, inChan, outChan chan interface{
 					log.Warning(err)
 				}
 				if err := conn.WriteMessage(websocket.TextMessage, jsonPacket); err != nil {
-					log.Warning(err)
+					log.Fatal(err)
 					return
 				}
-
-			case <-errChan:
-				return
 			}
 		}
 	}()
@@ -69,8 +65,7 @@ func processRotondePackets(conn *websocket.Conn, inChan, outChan chan interface{
 		for {
 			messageType, reader, err := conn.NextReader()
 			if err != nil {
-				log.Println(err)
-				errChan <- err
+				log.Fatal(err)
 				return
 			}
 			if messageType == websocket.TextMessage {
@@ -83,6 +78,6 @@ func processRotondePackets(conn *websocket.Conn, inChan, outChan chan interface{
 		}
 	}()
 
-	log.Println("Treating messages")
+	log.Info("Treating messages")
 	wg.Wait()
 }
