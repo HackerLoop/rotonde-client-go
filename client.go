@@ -36,8 +36,8 @@ func NewClient(rotondeUrl string) (c *Client) {
 	c.localDefinitions = make(map[string]rotonde.Definitions)
 	c.remoteDefinitions = make(map[string]rotonde.Definitions)
 
-	c.jsonOutChan = make(chan interface{}, 30)
-	c.jsonInChan = make(chan interface{}, 30)
+	c.jsonOutChan = make(chan interface{}, 100)
+	c.jsonInChan = make(chan interface{}, 100)
 
 	go startConnection(rotondeUrl, c.jsonInChan, c.jsonOutChan)
 
