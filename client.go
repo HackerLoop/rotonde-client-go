@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/HackerLoop/rotonde/shared"
-	"github.com/vitaminwater/handlers.go"
+	"github.com/vitaminwater/handlers-go"
 )
 
 // TODO dry
